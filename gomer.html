@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Гомер Кликер</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Arial', sans-serif;
+            min-height: 100vh;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        
+        .container {
+            text-align: center;
+            padding: 20px;
+            position: relative;
+            z-index: 10;
+        }
+        
+        h1 {
+            color: white;
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .counter {
+            color: white;
+            font-size: 2em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .instructions {
+            color: white;
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        .homer {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            user-select: none;
+            pointer-events: none;
+            transition: none;
+            z-index: 5;
+        }
+        
+        .stats {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.9);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .stats h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .stats p {
+            margin: 5px 0;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Гомер Кликер</h1>
+        <div class="counter">Кликов: <span id="clickCount">0</span></div>
+        <div class="instructions">Кликай anywhere чтобы бросать Гомеров!</div>
+    </div>
+    
+    <div class="stats">
+        <h3>Статистика</h3>
+        <p>Всего Гомеров: <span id="totalHomers">0</span></p>
+        <p>Активных: <span id="activeHomers">0</span></p>
+        <p>Скорость: <span id="speed">0</span> px/c</p>
+    </div>
+
+    <script>
+        class Homer {
+            constructor(x, y, velocityX = 0, velocityY = 0) {
+                this.element = document.createElement('img');
+                this.element.src = 'https://github.com/TheqopThe/gomer/blob/main/gomer.webp?raw=true';
+                this.element.className = 'homer';
+                this.element.style.left = x + 'px';
+                this.element.style.top = y + 'px';
+                
+                this.x = x;
+                this.y = y;
+                this.velocityX = velocityX;
+                this.velocityY = velocityY;
+                this.rotation = 0;
+                this.rotationSpeed = (Math.random() - 0.5) * 10;
+                this.gravity = 0.5;
+                this.friction = 0.99;
+                this.bounce = 0.7;
+                this.width = 100;
+                this.height = 100;
+                
+                document.body.appendChild(this.element);
+                homers.push(this);
+                updateStats();
+            }
+            
+            update() {
+                // Применяем гравитацию
+                this.velocityY += this.gravity;
+                
+                // Применяем трение
+                this.velocityX *= this.friction;
+                this.velocityY *= this.friction;
+                
+                // Обновляем позицию
+                this.x += this.velocityX;
+                this.y += this.velocityY;
+                
+                // Вращение
+                this.rotation += this.rotationSpeed;
+                
+                // Проверка столкновения с границами
+                if (this.x <= 0) {
+                    this.x = 0;
+                    this.velocityX = -this.velocityX * this.bounce;
+                } else if (this.x + this.width >= window.innerWidth) {
+                    this.x = window.innerWidth - this.width;
+                    this.velocityX = -this.velocityX * this.bounce;
+                }
+                
+                if (this.y <= 0) {
+                    this.y = 0;
+                    this.velocityY = -this.velocityY * this.bounce;
+                } else if (this.y + this.height >= window.innerHeight) {
+                    this.y = window.innerHeight - this.height;
+                    this.velocityY = -this.velocityY * this.bounce;
+                    // Добавляем немного трения при ударе о землю
+                    this.velocityX *= 0.8;
+                }
+                
+                // Обновляем стиль
+                this.element.style.left = this.x + 'px';
+                this.element.style.top = this.y + 'px';
+                this.element.style.transform = `rotate(${this.rotation}deg)`;
+                
+                // Удаляем если слишком медленный и за пределами экрана
+                const speed = Math.sqrt(this.velocityX * this.velocityX + this.velocityY * this.velocityY);
+                if (speed < 0.1 && this.y > window.innerHeight - this.height - 10) {
+                    this.remove();
+                }
+            }
+            
+            remove() {
+                this.element.remove();
+                const index = homers.indexOf(this);
+                if (index > -1) {
+                    homers.splice(index, 1);
+                }
+                updateStats();
+            }
+        }
+        
+        // Переменные
+        let homers = [];
+        let clickCount = 0;
+        let lastHomerTime = 0;
+        
+        // Элементы DOM
+        const clickCountElement = document.getElementById('clickCount');
+        const totalHomersElement = document.getElementById('totalHomers');
+        const activeHomersElement = document.getElementById('activeHomers');
+        const speedElement = document.getElementById('speed');
+        
+        // Функция обновления статистики
+        function updateStats() {
+            totalHomersElement.textContent = homers.length;
+            activeHomersElement.textContent = homers.length;
+            
+            // Рассчитываем среднюю скорость
+            let totalSpeed = 0;
+            homers.forEach(homer => {
+                const speed = Math.sqrt(homer.velocityX * homer.velocityX + homer.velocityY * homer.velocityY);
+                totalSpeed += speed;
+            });
+            const averageSpeed = homers.length > 0 ? totalSpeed / homers.length : 0;
+            speedElement.textContent = averageSpeed.toFixed(1);
+        }
+        
+        // Функция создания Гомера
+        function createHomer(x, y) {
+            // Случайная начальная скорость
+            const velocityX = (Math.random() - 0.5) * 15;
+            const velocityY = (Math.random() - 0.5) * 15 - 5; // Немного вверх
+            
+            new Homer(x - 50, y - 50, velocityX, velocityY);
+            clickCount++;
+            clickCountElement.textContent = clickCount;
+        }
+        
+        // Обработчик клика
+        document.addEventListener('click', (e) => {
+            createHomer(e.clientX, e.clientY);
+            lastHomerTime = Date.now();
+        });
+        
+        // Обработчик движения мыши (можно создавать Гомеров при движении с зажатой кнопкой)
+        let isMouseDown = false;
+        document.addEventListener('mousedown', () => isMouseDown = true);
+        document.addEventListener('mouseup', () => isMouseDown = false);
+        
+        document.addEventListener('mousemove', (e) => {
+            if (isMouseDown && Date.now() - lastHomerTime > 50) {
+                createHomer(e.clientX, e.clientY);
+                lastHomerTime = Date.now();
+            }
+        });
+        
+        // Игровой цикл
+        function gameLoop() {
+            homers.forEach(homer => homer.update());
+            updateStats();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Запуск игры
+        gameLoop();
+        
+        // Создаем несколько Гомеров при загрузке
+        window.addEventListener('load', () => {
+            for (let i = 0; i < 3; i++) {
+                setTimeout(() => {
+                    createHomer(
+                        Math.random() * window.innerWidth,
+                        Math.random() * window.innerHeight
+                    );
+                }, i * 500);
+            }
+        });
+        
+        // Обработчик изменения размера окна
+        window.addEventListener('resize', () => {
+            // Удаляем Гомеров за пределами экрана
+            homers = homers.filter(homer => {
+                if (homer.x > window.innerWidth || homer.y > window.innerHeight) {
+                    homer.remove();
+                    return false;
+                }
+                return true;
+            });
+        });
+    </script>
+</body>
+</html>
